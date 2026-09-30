@@ -1,0 +1,14 @@
+node_modules/
+lib/
+*.tsbuildinfo
+python/**/__pycache__/
+python/**/*.pyc
+python/.pytest_cache/
+python/*.egg-info/
+python/dist/
+python/build/
+.venv/
+*.onnx
+*.sqlite
+*.db
+.DS_Store

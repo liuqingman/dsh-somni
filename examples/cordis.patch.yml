@@ -1,0 +1,44 @@
+# Append to ~/.dsh/cordis.yml (or merge into the plugin list of your deployment).
+# Every key is optional — the values below are the defaults unless commented otherwise.
+# The second entry lets DSH's skill-filesystem plugin load skills distilled by the dreamer.
+- name: dsh-somni
+  config:
+    dataDir: ~/.dsh/somni          # memory/ skills/ models/ live here
+    python: python3                # interpreter ≥ 3.9 with `somni-memory` importable (bundled under python/)
+    capture:
+      enabled: true
+      maxMessageChars: 4000
+    inject:                        # resident system-prompt sections
+      identity: true               # about_me + user profiles
+      intentions: true             # open intentions / due reminders
+      discipline: true             # when to call the memory tools
+    assoc:                         # System-1 associative hints (needs the vector layer)
+      enabled: true
+      preStep: true                # cue = latest user message
+      postExecute: true            # cue = tool name + args
+      threshold: 0.52
+      gap: 0.04
+      maxItems: 2
+    tools:
+      enabled: true                # recall_memories / search_episodes / … / dream_now
+    dream:
+      enabled: true
+      idleMs: 900000               # 15 min of quiet before a dream may start
+      maxIntervalMs: 21600000      # dream at least every 6 h while logs are pending and agents are idle
+      minPendingLogs: 1
+      llm: host                    # host = reuse the harness model via ctx.llm
+      # llm: openai                # openai = sidecar calls an OpenAI-compatible endpoint itself
+      # openai:
+      #   baseUrl: https://api.openai.com/v1
+      #   apiKeyEnv: OPENAI_API_KEY
+      #   model: gpt-4o-mini
+      maxIterations: 60
+    embed:
+      provider: local              # local (ONNX bge-small-zh) | http (OpenAI-compatible /embeddings) | off
+      # modelDir: ~/.dsh/somni/models/bge-small-zh-v1.5
+      # baseUrl: http://127.0.0.1:8080/v1
+    logLevel: info
+- name: '@deepseek-ai/dsh-skill-filesystem'
+  config:
+    customSkillDirs:
+      - ~/.dsh/somni/skills/agent_learned_skills

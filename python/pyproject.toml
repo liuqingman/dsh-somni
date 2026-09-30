@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "somni-memory"
+version = "0.1.0"
+description = "Somni memory core: markdown+frontmatter memory store, hybrid recall, sleep-time consolidation. Sidecar for the dsh-somni plugin."
+readme = "../README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+embed = ["onnxruntime>=1.16", "tokenizers>=0.15", "numpy>=1.24"]
+openai = ["openai>=1.30"]
+test = ["pytest>=7"]
+
+[project.scripts]
+somni-memory = "somni_memory.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["somni_memory*"]
+
+[tool.setuptools.package-data]
+somni_memory = ["prompts/*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
