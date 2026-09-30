@@ -2,7 +2,7 @@
 
 **Sleep-consolidated long-term memory for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
-[中文说明](./README.zh.md) · [Design notes](./docs/design.md) · MIT
+[中文说明](./README.zh.md) · [Design notes](./docs/design.md) · [Handoff](./docs/HANDOFF.md) · MIT
 
 `dsh-somni` gives a DSH agent a memory that works the way people's does: it
 **remembers while awake** (identity and open intentions stay resident in the
@@ -11,48 +11,106 @@ model can recall deliberately with tools) and **consolidates while asleep**
 (when the agent has been idle for a while, a "dreamer" distills the day's
 session logs into episodic, semantic, prospective and procedural memory).
 
-Everything is plain Markdown + YAML front-matter on disk, so you can read,
-edit, grep and version your agent's memory.
+Everything is plain Markdown + YAML front-matter on disk — you can read, edit,
+grep and version your agent's memory with ordinary tools.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph DSH["DeepSeek Harness host (Node >= 22)"]
+        AGENT["agent sessions<br/>(main + sub-agents)"]
+        LLM["ctx.llm<br/>harness model"]
+    end
+
+    subgraph PLUGIN["dsh-somni — TypeScript plugin (the awake half)"]
+        CAP["capture<br/>session events to session-log/*.md"]
+        INJ["inject<br/>identity / intentions / discipline<br/>to system prompt sections"]
+        ASC["associate<br/>cue scoring to memory hint"]
+        TOOLS["tools<br/>9 memory tools on ctx.tools"]
+        DRM["dream scheduler<br/>idle timer / preemptible"]
+    end
+
+    subgraph SIDE["somni_memory — Python sidecar (the asleep half)"]
+        MM["memory manager<br/>front-matter entries / scoring / decay"]
+        IDX["vector indexer<br/>SQLite + cosine (optional)"]
+        SLP["sleep agent / dreamer<br/>ReAct consolidation loop"]
+    end
+
+    DISK[("dataDir/<br/>memory/ skills/ models/<br/>Markdown + YAML front-matter")]
+
+    AGENT -- "session/event" --> CAP
+    AGENT -- "latest message (pre-step)" --> ASC
+    AGENT -- "tool name + args (post-execute)" --> ASC
+    INJ -- "systemPrompt.section x3" --> AGENT
+    ASC -- "hint messages" --> AGENT
+    TOOLS <--> AGENT
+    CAP --> SIDE
+    ASC --> SIDE
+    TOOLS --> SIDE
+    DRM -- "sleep.run" --> SLP
+    SIDE -- "llm.chat (reverse RPC)" --> LLM
+    SIDE <--> DISK
+    MM --> IDX
 ```
-┌──────────────── awake (this plugin, TypeScript) ────────────────┐
-│ capture       session events → session-log/*.md                 │
-│ inject        about_me · user profiles · intentions · discipline│
-│ associate     latest message / tool call → 【记忆提示】 hint     │
-│ tools         recall_memories · search_episodes · add_intention…│
-└──────────────────────────┬──────────────────────────────────────┘
-                           │ stdio JSON-RPC
-┌──────────────── asleep (Python sidecar) ────────────────────────┐
-│ dreamer       pending session-logs → episodes / knowledge /     │
-│               skills / intentions / profile deltas              │
-│ recall        hybrid keyword + vector (local ONNX) scoring      │
-└─────────────────────────────────────────────────────────────────┘
-```
+
+The two halves talk over a single stdio ndjson JSON-RPC link (`rpc.py`): TS →
+Python for `session.*` / `assoc.*` / `tools.*` / `sleep.*`, and — while
+dreaming — Python → TS `llm.chat`, so consolidation reuses the harness model
+with zero extra API keys. Any request that would print to stdout breaks the
+protocol, which is invariant #1 of the design (see `docs/HANDOFF.md`).
+
+## Inputs / Outputs / Dependencies
+
+### Inputs — what the plugin consumes
+
+| Input | Source | Notes |
+|---|---|---|
+| Session events | DSH `session/event` hook | user/model/tool messages, buffered and drained on `session/flush` / `turn/end`; sub-agent sessions skipped |
+| Cues for association | `agent/pre-step` (latest user message) and `tools/post-execute` (tool name + args) | scored against knowledge / skills / episodes; hint injected only above the confidence floor (0.52) with a 0.04 gap to the runner-up |
+| Tool schemas | Python function signatures + Google-style docstrings | generated at startup by `toolspec.py`; the docstring *is* the tool description |
+| Harness model | `ctx.llm.stream` + `ctx.agentDefaultModel.currentSelection()` | used by the dreamer when `dream.llm: host` (default) |
+| Config | `cordis.yml` / `examples/cordis.patch.yml` | every key optional; see the table below |
+| Embedding model (optional) | local ONNX dir or an OpenAI-compatible `/embeddings` endpoint | without it the plugin logs once and runs keyword-only |
+
+### Outputs — what the plugin produces
+
+| Output | Where the model sees it | Persistence |
+|---|---|---|
+| Resident prompt sections | system prompt, 3 sections (identity / intentions / discipline), refreshed on agent create, before each admitted step, after dreams and intention tools | nothing written |
+| Associative hints | appended `UserMessage` (pre-step) or `additionalContexts` (post-execute) | nothing written |
+| Memory tools | 9 tools on `ctx.tools`: `recall_memories`, `search_episodes`, `search_recent_conversation`, `search_knowledge`, `add_intention`, `complete_intention`, `cancel_intention`, `list_intentions`, `dream_now` | results are Markdown |
+| Session logs | one file per session under `memory/session-log/` | Markdown, front-matter per session |
+| Dream products | episodic / semantic (knowledge) / prospective (intentions) / procedural (skills) entries + profile deltas + decay passes + `dreams/` run log | Markdown + YAML front-matter under `dataDir` |
+| Skill files | distills `skills/agent_learned_skills/*/SKILL.md` | point `dsh-skill-filesystem` at the directory to load them |
+
+### Dependencies
+
+| Layer | Requirement | Fallback if missing |
+|---|---|---|
+| Runtime | DeepSeek Harness `>= 0.2.0-rc.1` (peer deps: `dsh-agent`, `dsh-session`, `dsh-llm`, `dsh-tools`, `dsh-system-prompt`, `dsh-subprocess`, `dsh-agent-default-model`, `dsh-home-paths`), Node `>= 22` | — |
+| Sidecar | Python `>= 3.9` on `PATH` (configurable via `python`) | plugin degrades gracefully; capture/dream stop, nothing crashes |
+| Python packages (core) | **none** — stdlib only | — |
+| Vector layer (optional) | `onnxruntime >= 1.16`, `tokenizers >= 0.15`, `numpy >= 1.24`, plus `bge-small-zh-v1.5` ONNX + tokenizer under `models/` | keyword-only scoring; associative hints stay silent |
+| `dream.llm: openai` (optional) | `openai` pip package + an OpenAI-compatible endpoint | use the default `host` mode instead |
+| Build/dev | TypeScript `>= 5.6`, pytest | — |
 
 ## What the agent gets
 
 | Memory kind | Where it lives | How it reaches the model |
 |---|---|---|
 | Identity — `about_me.md`, `about_user.md`, per-user profiles | `memory/` | Resident system-prompt section |
-| Prospective — intentions with cue / due time | `memory/intentions/` | Resident section (due & cue-matched first); `add_intention` / `complete_intention` / `cancel_intention` / `list_intentions` tools |
+| Prospective — intentions with cue / due time | `memory/intentions/` | Resident section (due & cue-matched first); intention tools |
 | Episodic — what happened, when, how it went | `memory/episodes/` | `search_episodes`, `recall_memories`; associative hints |
 | Semantic — facts, decisions, pitfalls, preferences | `memory/knowledge/` | `search_knowledge`, `recall_memories`; associative hints |
-| Procedural — distilled skills (`SKILL.md`) | `skills/agent_learned_skills/` | Point `dsh-skill-filesystem` at the directory; associative hints |
+| Procedural — distilled skills (`SKILL.md`) | `skills/agent_learned_skills/` | `dsh-skill-filesystem` directory; associative hints |
 | Working — the current conversation | `memory/session-log/` | `search_recent_conversation` |
 
-Associative hints are System-1: a cue (the latest user message, or a tool name
-+ arguments after it ran) is scored against knowledge / skills / episodes with a
-hybrid keyword+vector score; a hint is injected only when the top hit clears an
-absolute floor (`0.52`) **and** stands clear of the runner-up (`0.04` gap),
-with per-session habituation so the same memory is not repeated. With the
-vector layer off the hooks stay silent.
-
-## Requirements
-
-* DeepSeek Harness `>= 0.2.0-rc.1` (peer deps: `dsh-agent`, `dsh-session`, `dsh-llm`, `dsh-tools`, `dsh-system-prompt`, `dsh-subprocess`, `dsh-agent-default-model`, `dsh-home-paths`)
-* Node `>= 22`
-* Python `>= 3.9` on `PATH` (configurable). No Python dependencies for the core.
-  Optional: `onnxruntime tokenizers numpy` for local embeddings, `openai` for `dream.llm: openai`.
+Associative hints are System-1: a cue is scored against knowledge / skills /
+episodes with a hybrid keyword+vector score; a hint is injected only when the
+top hit clears an absolute floor (`0.52`) **and** stands clear of the runner-up
+(`0.04` gap), with per-session habituation so the same memory is never repeated.
+With the vector layer off the hooks stay silent.
 
 ## Install
 
@@ -62,8 +120,9 @@ npm i dsh-somni
 python3 -m pip install "onnxruntime>=1.16" "tokenizers>=0.15" "numpy>=1.24"
 ```
 
-Then add the plugin to `~/.dsh/cordis.yml` — see [`examples/cordis.patch.yml`](./examples/cordis.patch.yml)
-for every option with its default. Minimal:
+Then add the plugin to `~/.dsh/cordis.yml` — see
+[`examples/cordis.patch.yml`](./examples/cordis.patch.yml) for every option
+with its default. Minimal:
 
 ```yaml
 - name: dsh-somni
@@ -74,8 +133,8 @@ for every option with its default. Minimal:
 
 For local embeddings put `model.onnx` + `tokenizer.json` of
 `BAAI/bge-small-zh-v1.5` (or any sentence-embedding model with the same
-layout) under `~/.dsh/somni/models/bge-small-zh-v1.5/`, or set
-`embed.modelDir`. Without a model the plugin logs once and runs keyword-only.
+layout) under `~/.dsh/somni/models/bge-small-zh-v1.5/`, or set `embed.modelDir`.
+Without a model the plugin logs once and runs keyword-only.
 
 ## Configuration
 
@@ -99,6 +158,28 @@ Dreams are preemptible: if any agent starts a turn mid-dream the sidecar is
 told to stop, so the user never waits on consolidation. The `dream_now` tool
 forces one from the conversation.
 
+## On-disk format
+
+```
+dataDir/
+├── memory/
+│   ├── about_me.md               # identity (resident prompt)
+│   ├── about_user_<id>.md        # per-user profiles
+│   ├── intentions/               # prospective memory (cue / due / priority)
+│   ├── episodes/                 # what happened, when, how it went
+│   ├── knowledge/                # facts, decisions, pitfalls, preferences
+│   ├── session-log/              # working memory, one file per session
+│   └── dreams/                   # dream run logs
+├── skills/
+│   └── agent_learned_skills/     # distilled SKILL.md files
+├── models/                       # optional ONNX embedding model
+└── index.sqlite                  # vector index (derived, safe to delete)
+```
+
+Everything under `memory/` and `skills/` is plain Markdown with YAML
+front-matter — the SQLite index is a derived cache and can be rebuilt at any
+time.
+
 ## How it plugs into DSH
 
 * **Capture** — `session/event` → buffered → drained on `session/flush` /
@@ -117,8 +198,8 @@ forces one from the conversation.
   `sleep.run` drives a ReAct loop whose LLM calls come back over the RPC link
   as `llm.chat` and are served by `ctx.llm.stream` with
   `ctx.agentDefaultModel.currentSelection()`.
-* **Sidecar** — spawned via `ctx.subprocess.spawn` (scrubbed env; only the
-  keys the config names are forwarded), restarted with backoff on crash,
+* **Sidecar** — spawned via `ctx.subprocess.spawn` (scrubbed environment variables (env); only
+  the keys the config names are forwarded), restarted with backoff on crash,
   shut down gracefully with the plugin.
 
 ## Development
