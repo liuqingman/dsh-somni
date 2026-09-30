@@ -1,6 +1,6 @@
 # dsh-somni
 
-**给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的睡眠整理式长期记忆。**
+**给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agent 的睡眠整理式长期记忆。**
 
 [English](./README.md) · [设计笔记](./docs/design.md) · MIT
 

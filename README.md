@@ -1,6 +1,6 @@
 # dsh-somni
 
-**Sleep-consolidated long-term memory for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
+**Sleep-consolidated long-term memory for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) agents.**
 
 [中文说明](./README.zh.md) · [Design notes](./docs/design.md) · MIT
 
