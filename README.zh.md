@@ -2,7 +2,7 @@
 
 **给 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的睡眠整理式长期记忆。**
 
-[English](./README.md) · [设计笔记](./docs/design.md) · [交接文档](./docs/HANDOFF.md) · MIT
+[English](./README.md) · [设计笔记](./docs/design.md) · MIT
 
 `dsh-somni` 让 DSH agent 拥有像人一样的记忆：**醒着时记忆**（身份与未竟意向常驻
 system prompt，相关记忆在行动时自动浮现，模型也可以用工具主动回忆），
@@ -105,6 +105,43 @@ flowchart TB
 联想提示是 System-1：线索用"关键词+向量"混合分对 knowledge / skills /
 episodes 打分；只有最高分越过绝对下限（`0.52`）**且**甩开第二名（`0.04` 间隔）
 才注入，并带会话内习惯化——同一条记忆绝不重复出现。向量层关闭时钩子整体静默。
+
+## 记忆核心：激活、加固、遗忘
+
+每条记忆文件的 front-matter 带五个驱动生命周期的数字：`score`（当前激活度，
+0–1）、`stability`（巩固程度）、`salience`（写入时的重要度）、`last_used`
+与 `last_decay`。
+
+**写入。** 情景记忆按 salience→初始分（low 0.4 / mid 0.6 / high 0.8）出生在
+*快*曲线上；知识和技能出生在*慢*曲线上。前瞻记忆（意向）完全豁免衰减——
+蔡格尼克效应：未完成的意向一直保持激活，直到完成或取消才清除，仅由临期
+窗口（3 天）控制何时主动提起。
+
+**加固 —— 间隔重复。** 每次被回忆或再次确认都会调用 `record_usage`：新的一
+天使用 `stability += 1`、`score += 0.2`；同一天重复使用只加 `0.05`——集中
+重复的收益低于间隔重复。
+
+**遗忘 —— 两条曲线。** 衰减在每次做梦时对全部条目执行一次：
+
+```
+daily_decay = 1 − base / (1 + stability × 0.5)
+score      *= daily_decay ^ days_since_last_decay
+```
+
+* 语义记忆（知识、技能）：`base = 0.1`——慢，且每用一次曲线更平。
+* 情景记忆：`base = 0.25`——不再被回忆的情景约 1–2 周淡出。
+* 闪光灯记忆效应：高 salience 的情景按 `base × 0.4` 衰减，mid 按
+  `base × 0.7`。
+
+**淘汰而非删除。** `score < 0.2` 的条目移入 `archived/`（情景移入
+`episodes/archived/`）——不销毁任何东西，文件仍可 grep，后续做梦也可能
+把它重新提回来。
+
+**回忆打分。** `recall_memories` 与联想提示共用一个混合打分器：
+`0.6 × 归一化余弦 + 0.4 × 关键词重合`，命中字面量再 `+0.2`；候选先过余弦
+噪声底（0.40），`related:` 一跳之邻按种子分 0.6 折减加入，同分时按条目自身
+激活度 `score` 决胜。向量层可用时走混合模式，不可用时整体退回纯关键词
+（tokenizer 放宽以保召回）。
 
 ## 安装
 

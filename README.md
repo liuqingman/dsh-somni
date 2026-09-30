@@ -2,7 +2,7 @@
 
 **Sleep-consolidated long-term memory for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).**
 
-[中文说明](./README.zh.md) · [Design notes](./docs/design.md) · [Handoff](./docs/HANDOFF.md) · MIT
+[中文说明](./README.zh.md) · [Design notes](./docs/design.md) · MIT
 
 `dsh-somni` gives a DSH agent a memory that works the way people's does: it
 **remembers while awake** (identity and open intentions stay resident in the
@@ -111,6 +111,51 @@ episodes with a hybrid keyword+vector score; a hint is injected only when the
 top hit clears an absolute floor (`0.52`) **and** stands clear of the runner-up
 (`0.04` gap), with per-session habituation so the same memory is never repeated.
 With the vector layer off the hooks stay silent.
+
+## The memory core: activation, strengthening, forgetting
+
+Every memory file carries five front-matter numbers that drive its life
+cycle: `score` (current activation, 0–1), `stability` (how well it is
+consolidated), `salience` (importance assigned at write time), `last_used`
+and `last_decay`.
+
+**Writing.** Episodes start with a salience→score mapping (low 0.4, mid 0.6,
+high 0.8) on the *fast* curve; knowledge and skills start on the *slow*
+curve. Prospective memory (intentions) is exempt from decay entirely — the
+Zeigunik effect: an open intention stays active until it is completed or
+cancelled, and only a due-date window (3 days) controls when it is
+proactively raised.
+
+**Strengthening — spaced repetition.** Every recall or re-confirmation calls
+`record_usage`: on a new day `stability += 1` and `score += 0.2`; same-day
+repeats add only `0.05` — massed repetition earns less than spaced
+repetition.
+
+**Forgetting — two curves.** Decay runs once per dream across all entries:
+
+```
+daily_decay = 1 − base / (1 + stability × 0.5)
+score      *= daily_decay ^ days_since_last_decay
+```
+
+* Semantic memories (knowledge, skills): `base = 0.1` — slow, and every use
+  flattens the curve further.
+* Episodic memories: `base = 0.25` — an episode that is never recalled again
+  fades out in roughly 1–2 weeks.
+* Flashbulb effect: high-salience episodes decay at `base × 0.4`, mid at
+  `base × 0.7`.
+
+**Retirement, not deletion.** When `score < 0.2` the entry is moved to
+`archived/` (episodes to `episodes/archived/`) — nothing is destroyed; the
+file stays greppable and a later dream may promote it back.
+
+**Recall scoring.** `recall_memories` and the associative hints share one
+hybrid scorer: `0.6 × normalized cosine + 0.4 × keyword overlap`, plus a
+`+0.2` literal-hit boost; candidates are gated by a cosine noise floor
+(0.40), related memories one hop away join at 0.6 of their seed's score, and
+ties are broken by the entry's own activation `score`. Semantic search runs
+in hybrid mode only when the vector layer is up — otherwise it falls back to
+keyword-only with a looser tokenizer to keep recall.
 
 ## Install
 
