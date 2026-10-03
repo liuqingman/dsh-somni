@@ -32,9 +32,9 @@ export type { ResolvedConfig } from './config.ts'
 
 export const name = 'dsh-somni'
 
-export const inject = {
-  required: ['subprocess', 'sessions', 'agents', 'llm', 'tools', 'systemPrompt', 'agentDefaultModel'],
-} as const
+export const inject = [
+  'subprocess', 'sessions', 'agents', 'llm', 'tools', 'systemPrompt', 'agentDefaultModel',
+] as const
 
 /** `<dshHome>/somni` unless overridden; `~` expanded either way. */
 export function resolveDataDir(configured: string): string {

@@ -145,20 +145,37 @@ score      *= daily_decay ^ days_since_last_decay
 
 ## 安装
 
+一条命令（需已安装 DSH、node >= 18、python >= 3.9）：
+
 ```bash
-npm i dsh-somni
-# 可选：向量层（语义召回 + 联想提示）
-python3 -m pip install "onnxruntime>=1.16" "tokenizers>=0.15" "numpy>=1.24"
+git clone https://github.com/liuqingman/dsh-somni.git
+cd dsh-somni
+./install.sh                  # 装进 default profile
+./install.sh --profile mybot  # 或 $DSH_HOME/profiles 下任意 profile
 ```
 
-然后把插件加进 `~/.dsh/cordis.yml`——每个选项及默认值见
-[`examples/cordis.patch.yml`](./examples/cordis.patch.yml)。最小配置：
+安装脚本会 pip 安装 sidecar、把插件链接进 profile 的 `node_modules`、把
+现成配置合并进 profile 的 `cordis.patch.yml`，并通过 stdio ping 验证
+sidecar。脚本幂等，可重复执行。
+
+可选向量层（语义召回 + 联想提示）：
+
+```bash
+python3 -m pip install "somni-memory[embed]"
+# 然后把 BAAI/bge-small-zh-v1.5 的 ONNX 文件放进 ~/.dsh/somni/models/
+# 并设置 embed.provider: local
+```
+
+然后把插件加进 profile 的 `cordis.patch.yml`——每个选项及默认值见
+[`examples/cordis.patch.yml`](./examples/cordis.patch.yml)。注意 patch 文件
+是 INSERT 列表，条目必须挂在顶层 `- insert:` 之下（`install.sh` 会自动写对）：
 
 ```yaml
-- name: dsh-somni
-- name: '@deepseek-ai/dsh-skill-filesystem'
-  config:
-    customSkillDirs: [~/.dsh/somni/skills/agent_learned_skills]
+- insert:
+    - name: dsh-somni
+    - name: '@deepseek-ai/dsh-skill-filesystem'
+      config:
+        customSkillDirs: [~/.dsh/somni/skills/agent_learned_skills]
 ```
 
 本地 embedding：把 `BAAI/bge-small-zh-v1.5`（或任何同布局的句子向量模型）的

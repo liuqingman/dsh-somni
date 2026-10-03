@@ -159,21 +159,28 @@ keyword-only with a looser tokenizer to keep recall.
 
 ## Install
 
+One command (requires an existing DSH install, node >= 18, python >= 3.9):
+
 ```bash
-npm i dsh-somni
-# optional: vector layer (semantic recall + associative hints)
-python3 -m pip install "onnxruntime>=1.16" "tokenizers>=0.15" "numpy>=1.24"
+git clone https://github.com/liuqingman/dsh-somni.git
+cd dsh-somni
+./install.sh                  # installs into the "default" profile
+./install.sh --profile mybot  # or any profile under $DSH_HOME/profiles
 ```
 
-Then add the plugin to `~/.dsh/cordis.yml` — see
-[`examples/cordis.patch.yml`](./examples/cordis.patch.yml) for every option
-with its default. Minimal:
+The installer pip-installs the sidecar, links the plugin into your profile's
+`node_modules`, merges a ready-made config into the profile's
+`cordis.patch.yml`, and pings the sidecar over stdio to verify. It is
+idempotent — safe to re-run.
 
-```yaml
-- name: dsh-somni
-- name: '@deepseek-ai/dsh-skill-filesystem'
-  config:
-    customSkillDirs: [~/.dsh/somni/skills/agent_learned_skills]
+See [`examples/cordis.patch.yml`](./examples/cordis.patch.yml) for every
+option with its default. Optional vector layer (semantic recall +
+associative hints):
+
+```bash
+python3 -m pip install "somni-memory[embed]"
+# then drop BAAI/bge-small-zh-v1.5 ONNX files into ~/.dsh/somni/models/
+# and set embed.provider: local
 ```
 
 For local embeddings put `model.onnx` + `tokenizer.json` of

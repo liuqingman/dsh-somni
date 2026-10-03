@@ -107,8 +107,11 @@ export class Capture {
       case 'tool/result': {
         const msg: ToolResultMessage = event.data.message
         const b = this.buffer(session.id)
-        const call = b.calls.get(msg.toolCallId) ?? `${msg.toolCallId}`
-        b.calls.delete(msg.toolCallId)
+        // DSH puts the call id on message.source.callId (see dsh-llm createToolResultMessage);
+        // fall back to the legacy flat field for forward-compat.
+        const callId = msg.source?.callId ?? (msg as { toolCallId?: string }).toolCallId
+        const call = b.calls.get(callId) ?? `${callId}`
+        b.calls.delete(callId)
         const err = event.data.error
         const body = textOf(msg.content) || (err ? `${err.name}: ${err.reason ?? err.code}` : '')
         const result = msg.isError ? `[error] ${body}` : body

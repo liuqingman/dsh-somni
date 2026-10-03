@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "somni-memory"
 version = "0.1.0"
 description = "Somni memory core: markdown+frontmatter memory store, hybrid recall, sleep-time consolidation. Sidecar for the dsh-somni plugin."
-readme = "../README.md"
+readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.9"
 dependencies = []
