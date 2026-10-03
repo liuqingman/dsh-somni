@@ -49,6 +49,15 @@ DSH_JS="$(node -e "console.log(require.resolve('@deepseek-ai/dsh/lib/bin.js'))" 
 [[ -n "$DSH_JS" ]] || die "DSH runtime not found. Install it first: npm i -g @deepseek-ai/dsh"
 say "DSH runtime: $DSH_JS"
 
+# 1b. build the TS plugin if lib/ is absent (fresh git clone) ----------------
+if [[ ! -f "$REPO_DIR/lib/index.js" ]]; then
+  command -v npm >/dev/null || die "npm not found — needed to build the plugin from source"
+  say "lib/ missing (fresh clone) — building..."
+  (cd "$REPO_DIR" && npm install --no-audit --no-fund --silent 2>&1 | tail -2 || true)
+  (cd "$REPO_DIR" && npm run build) || die "plugin build failed — run manually: cd $REPO_DIR && npm install && npm run build"
+  say "plugin built: $REPO_DIR/lib"
+fi
+
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE"
 mkdir -p "$PROFILE_DIR/node_modules" "$DSH_HOME/profiles"
 say "profile dir: $PROFILE_DIR"
