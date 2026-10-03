@@ -52,9 +52,12 @@ say "DSH runtime: $DSH_JS"
 # 1b. build the TS plugin if lib/ is absent (fresh git clone) ----------------
 if [[ ! -f "$REPO_DIR/lib/index.js" ]]; then
   command -v npm >/dev/null || die "npm not found — needed to build the plugin from source"
-  say "lib/ missing (fresh clone) — building..."
-  (cd "$REPO_DIR" && npm install --no-audit --no-fund --silent 2>&1 | tail -2 || true)
-  (cd "$REPO_DIR" && npm run build) || die "plugin build failed — run manually: cd $REPO_DIR && npm install && npm run build"
+  say "lib/ missing (fresh clone) — building (npm install + tsc, may take a minute)..."
+  (cd "$REPO_DIR" && npm install --no-audit --no-fund --legacy-peer-deps --silent 2>&1 | tail -2 || true)
+  if [[ ! -x "$REPO_DIR/node_modules/.bin/tsc" ]]; then
+    die "npm install failed to provide tsc — run manually: cd $REPO_DIR && npm install --legacy-peer-deps && npm run build"
+  fi
+  (cd "$REPO_DIR" && npm run build) || die "plugin build failed — run manually: cd $REPO_DIR && npm install --legacy-peer-deps && npm run build"
   say "plugin built: $REPO_DIR/lib"
 fi
 
