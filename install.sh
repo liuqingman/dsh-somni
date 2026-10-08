@@ -82,20 +82,27 @@ fi
 ln -sfn "$REPO_DIR" "$PLUGIN_DST"
 say "plugin linked: $PLUGIN_DST -> $REPO_DIR"
 
+# 0b. data dir (must be set before config merge uses it) ------------------------------
+SOMNI_DATA_DIR="${SOMNI_DATA_DIR:-$("$PYTHON" -c "import os; print(os.path.expanduser('~/.dsh/somni'))")}"
+mkdir -p "$SOMNI_DATA_DIR/memory"
+export SOMNI_DATA_DIR
+
 # 4. config merge (idempotent) ---------------------------------------------
 PATCH="$PROFILE_DIR/cordis.patch.yml"
 touch "$PATCH"
 if grep -q 'id: dsh-somni' "$PATCH" 2>/dev/null; then
   say "config already present in $PATCH — skip merge"
 else
-  cat >> "$PATCH" <<'YML'
+  DATA_DIR_YML="$SOMNI_DATA_DIR"
+  PYTHON_YML="$(command -v "$PYTHON")"
+  cat >> "$PATCH" <<YML
 
 - insert:
     - id: dsh-somni
       name: dsh-somni
       config:
-        dataDir: ~/.dsh/somni
-        python: python3        # installer probes a >=3.9 interpreter; override if needed
+        dataDir: ${DATA_DIR_YML}
+        python: ${PYTHON_YML}  # probed by installer (>=3.9)
         capture:
           enabled: true
           maxMessageChars: 4000
@@ -123,10 +130,12 @@ fi
 
 # 5. sidecar ping over stdio JSON-RPC --------------------------------------
 say "verifying sidecar..."
-export SOMNI_INSTALL_DATA_DIR="$("$PYTHON" -c "import os; print(os.path.expanduser('~/.dsh/somni'))")"
+SOMNI_DATA_DIR="${SOMNI_DATA_DIR:-$("$PYTHON" -c "import os; print(os.path.expanduser('~/.dsh/somni'))")}"
+mkdir -p "$SOMNI_DATA_DIR/memory"
+export SOMNI_INSTALL_DATA_DIR="$SOMNI_DATA_DIR"
 "$PYTHON" - <<'PY' && say "sidecar OK — memory tools will register on next DSH boot"
 import json, subprocess, sys, os
-data_dir = os.environ.get('SOMNI_INSTALL_DATA_DIR', os.path.expanduser('~/.dsh/somni'))
+data_dir = os.environ['SOMNI_INSTALL_DATA_DIR']
 proc = subprocess.Popen(
     [sys.executable, "-m", "somni_memory", "--data-dir", data_dir],
     stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
