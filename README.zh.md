@@ -193,6 +193,7 @@ python3 -m pip install "somni-memory[embed]"
 | `assoc.enabled` / `preStep` / `postExecute` | `true` | 最新消息 / 工具调用后的联想提示 |
 | `assoc.threshold` / `gap` / `maxItems` | `0.52` / `0.04` / `2` | 置信门 |
 | `tools.enabled` | `true` | 注册记忆工具（含 `dream_now`） |
+| `tools.gate.stateFile` / `stateKey` / `pollMs` | `''`（关） / `disabled_plugins.dsh-somni` / `5000` | 可选的运行时工具面总闸：轮询一个 JSON 状态文件，`stateKey`（点路径）为真 → 全部 somni 工具从 `ctx.tools` 卸载（模型工具表里 schema 消失，也调不了），翻转后旧 schema 窗口由 `execute` 硬拒兜底；文件缺失或值为假 → 自动回挂。不配 `stateFile` 则完全等价于无闸 |
 | `dream.enabled` | `true` | 定时整理 |
 | `dream.idleMs` / `maxIntervalMs` / `minPendingLogs` | `15 min` / `6 h` / `1` | 空闲多久后可做梦；空闲期间至少每隔这么久做一次 |
 | `dream.llm` | `host` | `host` = 经 `ctx.llm` 复用宿主模型；`openai` = sidecar 自行调 OpenAI 兼容 API（`dream.openai.{baseUrl,apiKeyEnv,model}`） |
