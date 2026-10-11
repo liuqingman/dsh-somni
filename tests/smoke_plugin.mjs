@@ -113,6 +113,8 @@ try {
     dataDir, python: PY, logLevel: 'warning',
     embed: { provider: 'off' },
     dream: { idleMs: 60_000, minPendingLogs: 1 },
+    // Optional: exercise the tools.gate path end-to-end (state file starts open).
+    ...(process.env.SMOKE_GATE_STATE ? { tools: { gate: { stateFile: process.env.SMOKE_GATE_STATE, stateKey: 'disabled_plugins.dsh-somni', pollMs: 50 } } } : {}),
   })
   assert.equal(plugin.name, 'dsh-somni')
   plugin.apply(ctx, cfg)
