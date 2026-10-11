@@ -49,6 +49,15 @@ export interface Config {
   /** System-2 memory tools registered on `ctx.tools`. */
   tools?: {
     enabled?: boolean
+    /** Optional runtime gate: flip a value in a JSON file to hot-disable the whole tool face. */
+    gate?: {
+      /** JSON file watched for changes; missing file → gate open. Empty → gate disabled. */
+      stateFile?: string
+      /** Dotted path into the JSON whose truthy value closes the gate (unmounts all somni tools). */
+      stateKey?: string
+      /** Poll interval in ms. */
+      pollMs?: number
+    }
   }
   /** Dreaming (sleep-agent consolidation). */
   dream?: {
@@ -107,6 +116,11 @@ export const Config: z<Config> = z.object({
   }).default({}),
   tools: z.object({
     enabled: z.boolean().default(true),
+    gate: z.object({
+      stateFile: z.string().default(''),
+      stateKey: z.string().default('disabled_plugins.dsh-somni'),
+      pollMs: z.number().default(5_000),
+    }).default({}),
   }).default({}),
   dream: z.object({
     enabled: z.boolean().default(true),
@@ -140,7 +154,7 @@ export type ResolvedConfig = {
     identityOrder: number; intentionsOrder: number; disciplineOrder: number
   }
   assoc: { enabled: boolean; preStep: boolean; postExecute: boolean; threshold: number; gap: number; maxItems: number }
-  tools: { enabled: boolean }
+  tools: { enabled: boolean; gate: { stateFile: string; stateKey: string; pollMs: number } }
   dream: {
     enabled: boolean; idleMs: number; maxIntervalMs: number; minPendingLogs: number
     llm: 'host' | 'openai'; openai: { baseUrl: string; apiKeyEnv: string; model: string }; maxIterations: number
