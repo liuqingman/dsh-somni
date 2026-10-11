@@ -8,6 +8,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ToolDefinition } from '@deepseek-ai/dsh-tools'
 import type { Sidecar } from './sidecar.ts'
+import type { ToolGate } from './toolgate.ts'
 import type { PromptSections } from './prompt.ts'
 
 interface RemoteTool {
@@ -20,7 +21,7 @@ interface RemoteTool {
 const MUTATES_INTENTIONS = new Set(['add_intention', 'complete_intention', 'cancel_intention'])
 const TOOL_TIMEOUT_MS = 30_000
 
-export function registerMemoryTools(ctx: Context, sidecar: Sidecar, prompt: PromptSections): void {
+export function registerMemoryTools(ctx: Context, sidecar: Sidecar, prompt: PromptSections, gate?: ToolGate): void {
   const logger = ctx.logger('somni:tools')
   const userId = process.env['USER'] || process.env['USERNAME'] || 'default'
   let registered = false
@@ -52,7 +53,8 @@ export function registerMemoryTools(ctx: Context, sidecar: Sidecar, prompt: Prom
           return typeof r.result === 'string' ? r.result : JSON.stringify(r.result ?? '')
         },
       }
-      ctx.tools.register(definition)
+      if (gate) gate.register(definition)
+      else ctx.tools.register(definition)
     }
     logger.info('registered %d memory tools: %s', tools.length, tools.map((t) => t.name).join(', '))
   }
