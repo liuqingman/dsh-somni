@@ -79,6 +79,7 @@ protocol, which is invariant #1 of the design (see `docs/HANDOFF.md`).
 |---|---|---|
 | Resident prompt sections | system prompt, 3 sections (identity / intentions / discipline), refreshed on agent create, before each admitted step, after dreams and intention tools | nothing written |
 | Associative hints | appended `UserMessage` (pre-step) or `additionalContexts` (post-execute) | nothing written |
+| Tool-face gate | optional `tools.gate`: poll a JSON state file (`stateFile`, `stateKey` dotted path, `pollMs`); truthy → all somni tools unmounted from `ctx.tools` (schemas vanish from the model's tool list) and `execute` hard-rejects the stale-schema window; falsy/missing file → remounted. No `stateFile` → inert | hot plugin enable/disable from an operator UI, no restart |
 | Memory tools | 9 tools on `ctx.tools`: `recall_memories`, `search_episodes`, `search_recent_conversation`, `search_knowledge`, `add_intention`, `complete_intention`, `cancel_intention`, `list_intentions`, `dream_now` | results are Markdown |
 | Session logs | one file per session under `memory/session-log/` | Markdown, front-matter per session |
 | Dream products | episodic / semantic (knowledge) / prospective (intentions) / procedural (skills) entries + profile deltas + decay passes + `dreams/` run log | Markdown + YAML front-matter under `dataDir` |
