@@ -24,6 +24,7 @@ import { Capture } from './capture.ts'
 import { hostChat, type ChatParams } from './llm-bridge.ts'
 import { PromptSections } from './prompt.ts'
 import { Association } from './assoc.ts'
+import { ToolGate } from './toolgate.ts'
 import { registerMemoryTools } from './tools.ts'
 import { Dreamer, registerDreamTool } from './dream.ts'
 
@@ -70,9 +71,13 @@ export const apply = (ctx: Context, rawConfig: Config) => {
   const capture = cfg.capture.enabled ? new Capture(ctx, cfg, sidecar) : undefined
   const prompt = new PromptSections(ctx, cfg, sidecar)
   if (cfg.assoc.enabled) new Association(ctx, cfg, sidecar)
-  if (cfg.tools.enabled) registerMemoryTools(ctx, sidecar, prompt)
+  const gate = cfg.tools.enabled && cfg.tools.gate.stateFile
+    ? new ToolGate(ctx, { stateFile: cfg.tools.gate.stateFile, stateKey: cfg.tools.gate.stateKey, pollMs: cfg.tools.gate.pollMs })
+    : undefined
+  gate?.start()
+  if (cfg.tools.enabled) registerMemoryTools(ctx, sidecar, prompt, gate)
   const dreamer = cfg.dream.enabled ? new Dreamer(ctx, cfg, sidecar, prompt) : undefined
-  if (dreamer && cfg.tools.enabled) registerDreamTool(ctx, dreamer)
+  if (dreamer && cfg.tools.enabled) registerDreamTool(ctx, dreamer, gate)
 
   ctx.effect(() => {
     sidecar.start()
@@ -80,6 +85,7 @@ export const apply = (ctx: Context, rawConfig: Config) => {
       .catch((err: Error) => logger.error('sidecar failed to start (%s); memory features are inactive until it recovers', err.message))
     return async () => {
       dreamer?.stop()
+      await gate?.stop()
       await capture?.closeAll()
       await sidecar.stop()
     }
