@@ -10,7 +10,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { ResolvedConfig } from './config.ts'
 import type { Sidecar } from './sidecar.ts'
-import type { ToolGate } from './toolgate.ts'
 import type { PromptSections } from './prompt.ts'
 
 interface SleepStatus {
@@ -33,6 +32,7 @@ export class Dreamer {
   private lastActivity = Date.now()
   private lastDream = Date.now()
   private dreaming = false
+  private manualDream = false
   private timer: NodeJS.Timeout | undefined
   private readonly logger
 
@@ -45,7 +45,7 @@ export class Dreamer {
     this.logger = ctx.logger('somni:dream')
     ctx.on('agent/status', ({ status }) => {
       this.lastActivity = Date.now()
-      if (status === 'running' && this.dreaming) this.interrupt('agent woke up')
+      if (status === 'running' && this.dreaming && !this.manualDream) this.interrupt('agent woke up')
     })
     ctx.on('session/event', () => { this.lastActivity = Date.now() })
     this.timer = setInterval(() => { void this.tick() }, TICK_MS)
@@ -83,6 +83,7 @@ export class Dreamer {
   async dream(trigger: string): Promise<SleepResult> {
     if (this.dreaming) return { status: 'skipped', reason: 'already dreaming' }
     this.dreaming = true
+    this.manualDream = trigger === 'manual'
     const started = Date.now()
     this.logger.info('dream start (trigger=%s)', trigger)
     try {
@@ -99,6 +100,7 @@ export class Dreamer {
       return { status: 'error', reason: (err as Error).message }
     } finally {
       this.dreaming = false
+      this.manualDream = false
       this.lastDream = Date.now()
       void this.prompt.refresh()
     }
@@ -111,9 +113,8 @@ export class Dreamer {
 }
 
 /** Optional operator tool so a dream can be forced from the conversation. */
-export function registerDreamTool(ctx: Context, dreamer: Dreamer, gate?: ToolGate): void {
-  const register = (def: Parameters<Context['tools']['register']>[0]) => (gate ? gate.register(def) : ctx.tools.register(def))
-  register({
+export function registerDreamTool(ctx: Context, dreamer: Dreamer): void {
+  ctx.tools.register({
     name: 'dream_now',
     description: '立即触发一次记忆整理（做梦）：把待处理的会话日志提炼为情景/知识/技能/意图记忆。耗时可能数分钟，仅在用户明确要求时调用。',
     parameters: { type: 'object', properties: {}, additionalProperties: false },
