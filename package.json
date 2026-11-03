@@ -1,6 +1,6 @@
 {
   "name": "dsh-somni",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sleep-consolidated memory for DeepSeek Harness: resident identity + intentions, action-time associative recall, episodic / semantic / prospective memory, and dream-time consolidation via a Python sidecar.",
   "type": "module",
   "main": "lib/index.js",
