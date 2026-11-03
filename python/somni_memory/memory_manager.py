@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import contextvars
+import json
 import logging
 import os
 import re
@@ -322,6 +323,19 @@ def build_recall_discipline() -> str:
     )
 
 
+def build_sleep_discipline() -> str:
+    """睡眠纪律（做梦触发）：dream_now 工具的调用时机与禁则。"""
+    return (
+        "\n## 😴 睡眠纪律（做梦触发）\n"
+        "用户要求你睡觉/做梦/整理记忆/休息（如\"你睡一觉吧\"）= 明确触发做梦，此时你必须：\n"
+        "1. 先用一句简短自然的话回应用户（如\"好的，我去睡一觉，醒来记忆更整齐。\"）；\n"
+        "2. **立即调用 `dream_now` 工具**发起做梦——这是做梦的唯一触发通道。\n"
+        "禁止只回话不调工具（那等于没睡），也禁止把做梦拆给用户操作。"
+        "做梦耗时数分钟属正常，工具返回前不要追加解释。\n"
+        "白天正常对话中**不要**主动调 `dream_now`；夜间睡眠调度由系统自动负责，无需你干预。\n"
+    )
+
+
 def build_memory_prompt(base_prompt: str, *, speaker_user_id: Optional[str] = None,
                         participant_user_ids=()) -> str:
     """在基础 prompt 后追加完整记忆上下文（identity + intentions + 回忆纪律）。
@@ -339,6 +353,7 @@ def build_memory_prompt(base_prompt: str, *, speaker_user_id: Optional[str] = No
     if intentions_block:
         parts.append(intentions_block)
     parts.append("\n\n" + build_recall_discipline())
+    parts.append(build_sleep_discipline())
     return "".join(parts)
 
 
@@ -1391,11 +1406,19 @@ def update_about_user(content: str, user_id: str = DEFAULT_USER_ID) -> str:
     prof = get_user_profile(user_id)
     meta = dict(prof["meta"]) if prof else {}
     meta.setdefault("user_id", user_id)
-    meta.setdefault("name", meta.get("name") or user_id)
+    # [namefix-1030] 不把裸 user_id 写进 name：否则前端/画像卡片只能显示 feishu_xxx。
+    # 真实展示名由 user-names.json 或正文「称呼：」提供，两者都没有时留空更诚实。
+    if not str(meta.get("name") or "").strip():
+        meta["name"] = ""
     meta["type"] = "identity"
     meta["updated"] = str(date.today())
+    meta["last_seen"] = str(date.today())
+    # [namefix-1030] 清掉历史遗留的「name == user_id」裸 uid 写法
+    if str(meta.get("name") or "").strip() == user_id:
+        meta["name"] = ""
     _write_user_profile(user_id, meta, content)
-    return f"已更新用户画像：{meta.get('name', user_id)}（{len(content)} 字符）"
+    shown = str(meta.get("name") or "").strip() or _display_name(user_id) or user_id
+    return f"已更新用户画像：{shown}（{len(content)} 字符）"
 
 
 def list_users() -> list[dict]:
@@ -1437,16 +1460,73 @@ def _user_summary(user_id: str, meta: dict) -> dict:
     }
 
 
+def _display_name(user_id: str) -> str:
+    """登录网关展示名（memory/config/user-names.json，由 /robot/whoami 写入）。
+
+    没有就返回空串。优先级高于画像 frontmatter 的 name —— 后者的 name 常常只是裸 uid
+    （feishu_demo_zhang），模型看了不知道该叫什么，就会沿用 about_me 里写死的「刘工」。
+    """
+    try:
+        fp = _get_memory_dir() / "config" / "user-names.json"
+        if not fp.exists():
+            return ""
+        mp = json.loads(fp.read_text(encoding="utf-8")) or {}
+        v = mp.get(user_id)
+        return str(v).strip() if v else ""
+    except Exception:
+        return ""
+
+
+def _is_owner_id(user_id: Optional[str]) -> bool:
+    """owners 名单（memory/config/user-names.json 的 _owners 字段）。"""
+    if not user_id:
+        return False
+    try:
+        fp = _get_memory_dir() / "config" / "user-names.json"
+        if not fp.exists():
+            return False
+        mp = json.loads(fp.read_text(encoding="utf-8")) or {}
+        return user_id in (mp.get("_owners") or [])
+    except Exception:
+        return False
+
+
 def _build_users_block(speaker_user_id: Optional[str], participant_user_ids) -> str:
     """构建注入 prompt 的用户画像段（当前说话人较详细 + 参与者简要）。"""
     parts: list[str] = []
     speaker = get_user_profile(speaker_user_id) if speaker_user_id else None
-    if speaker:
-        name = speaker["meta"].get("name", speaker_user_id)
-        dept = speaker["meta"].get("department", "")
+    disp = _display_name(speaker_user_id) if speaker_user_id else ""
+    if speaker or disp:
+        meta = (speaker or {}).get("meta", {}) or {}
+        body = (speaker or {}).get("body", "") or ""
+        raw_name = str(meta.get("name", "") or "").strip()
+        # 画像里的 name 若只是裸 uid（等于 user_id），视为没名字
+        if raw_name == speaker_user_id:
+            raw_name = ""
+        name = disp or raw_name
+        extra = ""
+        # 展示名可能带标注，如「张女士（看MONA03）」：称呼取括号前，括号内容当备注
+        if name and ("（" in name or "(" in name):
+            cut = name.split("（")[0].split("(")[0].strip()
+            note = name[len(cut):].strip(" （）()")
+            if cut:
+                name = cut
+                extra = note
+        dept = meta.get("department", "")
         head = f"## 当前说话人\n姓名：{name}" + (f"（{dept}）" if dept else "")
-        if speaker["body"].strip():
-            head += "\n" + speaker["body"].strip()
+        is_owner = str(meta.get("is_owner", "")).lower() in ("true", "1", "yes") or _is_owner_id(speaker_user_id)
+        if name and is_owner:
+            head += f"\n称呼：{name}（本人），按他习惯叫「刘工」。"
+        elif name:
+            head += f"\n称呼：直接叫「{name}」；不要用别人的名字（如「刘工/刘超」）称呼这位访客。"
+        else:
+            head += ("\n称呼：这位访客尚未自报姓名，不要凭空叫名字（尤其不能叫「刘工/刘超」）；"
+                     "需要称呼时先问「请问怎么称呼您」。")
+        if extra:
+            head += f"\n备注：{extra}"
+        head += f"\nuser_id：{speaker_user_id}"
+        if body.strip():
+            head += "\n" + body.strip()
         parts.append(head)
     others = [u for u in (participant_user_ids or []) if u and u != speaker_user_id]
     lines = []

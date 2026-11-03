@@ -120,7 +120,7 @@ class SomniService:
             return {
                 "identity": mm.build_identity_block(speaker_user_id=speaker, participant_user_ids=participants),
                 "intentions": mm.build_intentions_block(current_message=current),
-                "discipline": mm.build_recall_discipline(),
+                "discipline": mm.build_recall_discipline() + mm.build_sleep_discipline(),
             }
         return await asyncio.to_thread(_build)
 
@@ -128,6 +128,18 @@ class SomniService:
     def _writer(self, params: dict) -> mm.SessionLogWriter:
         sid = str(_req(params, "sessionId"))
         w = self._sessions.get(sid)
+        # [uid-switch-1029] 同一 sessionId 首次落盘后 user_id 被写死；
+        # 前端切换登录身份（whoami/带 x-vlt-user 的 /robot/chat）后必须按新人重新开档，
+        # 否则画像永远记到第一个人头上。仅当本次 params 显式带 userId 且与现存不同才切。
+        want = str(params.get("userId") or "").strip()
+        if w is not None and want and want != getattr(w, "_user_id", ""):
+            try:
+                w.close()
+            except Exception:
+                pass
+            logger.info("session-log user switch %s -> %s (%s)", getattr(w, "_user_id", ""), want, sid)
+            self._sessions.pop(sid, None)
+            w = None
         if w is None:
             w = mm.SessionLogWriter(
                 user_id=str(params.get("userId") or "default"),
