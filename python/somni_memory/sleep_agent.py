@@ -8,6 +8,9 @@
 - 支持可靠打断机制：通过 SleepInterruptedError 异常强制终止循环
 - 使用独立的 SLEEP_MODEL（默认 qwen-plus）降低成本
 """
+
+from __future__ import annotations
+
 import asyncio
 import functools
 import json
