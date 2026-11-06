@@ -95,7 +95,9 @@ footer a{color:var(--dim)}
 <section id="how" class="reveal">
   <div class="tag">How it works</div>
   <h2>两个半身：醒的一半，睡的一半</h2>
-  <p class="lead">醒着的 TypeScript 插件负责采集、注入与关联；睡着的 Python 边车负责记忆管理与做梦整合。两端只靠一条 stdio JSON-RPC 连接，做梦时反向调用宿主模型——不用额外 API Key。</p>
+  <p class="lead"><b>醒着的那半</b>是跑在宿主里的 TypeScript 插件：把会话事件记下来、行动前把相关记忆注入提示、按线索做关联。<br>
+  <b>睡着的那半</b>是一个独立的 Python 进程（术语叫 sidecar「边车」——由插件拉起、跑在同一台机器上、不对外开端口，像挂在主机旁边的挎斗），负责记忆条目的打分与衰减，以及空闲时「做梦」整理当天的日志。</p>
+  <p class="lead">两边只靠一条 stdio JSON-RPC 管道通信，做梦时反向借宿主的模型，所以不用额外 API Key。</p>
   <div class="flow">
     <span>会话事件 → <b>采集</b></span><span>→</span>
     <span>空闲 → <b>做梦整合</b></span><span>→</span>
