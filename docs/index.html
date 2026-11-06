@@ -110,21 +110,21 @@ footer a{color:var(--dim)}
 
 <section id="how" class="reveal">
   <div class="tag">Design</div>
-  <h2>它敢慢，因为它不在你的链路上</h2>
-  <p class="lead">多数记忆方案挤在推理链上：每轮都塞检索、塞摘要、塞自我反思——便宜、即时，但只能做一次性的近似。Somni 把它整个摘出去，放进另一个进程（Python sidecar），由一个睡眠循环专职处理。<b>不在链路上，才敢读一整天的日志、反复改写、当众否决自己</b>；而你在会话里看到的，只是一条想得起来就递上来的提示。</p>
+  <h2>把「写记忆」从推理链上摘下来</h2>
+  <p class="lead">记忆系统只做两件事：决定留下什么，决定递出什么。这两件事的代价根本不同——<b>留下什么，可以慢慢想；递出什么，必须当场就对</b>。同一个进程、同一条链路里，二者必然互相妥协：要么整理被砍到草率，要么你的会话被拖慢。dsh-somni 的第一性选择是把它俩拆开：写，整个搬离推理链，交给一个空闲时才起床的独立进程做全量、多步、可反悔的判断；读，压到最小——一句话，想不出就不说。</p>
   <div class="grid g2" style="margin-top:26px">
-    <div class="card"><h3>摘下来，才付得起成本</h3><p>昂贵的整理不发生在你的轮次：所有 agent idle 且安静够久，才 <code>sleep.run</code>。省下的不是 token，是「这一步必须做完」的时间压力。</p></div>
-    <div class="card"><h3>敢否决自己</h3><p>做梦时是 ReAct：读日志、写结论、必要时改旧结论。冲突以新证据覆盖旧的，分低于 0.2 的条目直接归档——遗忘是设计，不是漏。</p></div>
-    <div class="card"><h3>断在半路也不怕</h3><p>处理完一条就 <code>mark_log_processed</code> 挪进 archived/。任一 agent 转 running，立刻 <code>sleep.cancel</code>，已处理的保住，其余留到下次。</p></div>
-    <div class="card"><h3>不是黑箱</h3><p>记下来的是带 front-matter 的 Markdown，分五层（情景/语义/前瞻/程序/身份）。能读、能改、能 diff、能进版本库——出了错你可以直接动手修。</p></div>
-    <div class="card"><h3>核心不搬家</h3><p>衰减曲线、混合打分、做梦循环原样留在 Python 里跑，harness 侧只做接线与调度。一条双向 ndjson JSON-RPC，省掉一次伤筋动骨的移植。</p></div>
-    <div class="card"><h3>坏了就说坏了</h3><p>sidecar 崩溃，在途请求当场报错，2s×n 退避重启最多三次；期间提示段沿用旧文本、工具返回错误串。降级而不假装正常。</p></div>
+    <div class="card"><h3>写：敢贵，因为不在链路上</h3><p>它读一整天的日志、反复改写、当众否决自己，分低到 0.2 就直接忘掉。这些成本只落在夜里，不落在你的轮次里——所以它可以做「当场付不起」的判断。</p></div>
+    <div class="card"><h3>读：敢少，因为错了收不回</h3><p>注入的每个 token 都要模型当场消化，错了没有第二遍。所以不塞检索结果、不塞摘要，只在真想到什么时追加一条提示；想不到就闭嘴，空着比塞满好。</p></div>
+    <div class="card"><h3>代价：写端得自己收敛</h3><p>读侧几乎不兜底，写端的质量就必须自证——五层存储（情景/语义/前瞻/程序/身份）各带各的生命周期，衰减与 stability 让无人维护的系统也趋于干净。</p></div>
+    <div class="card"><h3>边界不是因为架构好看</h3><p>Python sidecar + 双向 ndjson RPC 是为了让「摘下来」物理成立：能隔离崩溃、能被抢占、能独立重启，而 harness 侧只剩接线与调度。</p></div>
+    <div class="card"><h3>五条不变量</h3><p>会话期间记忆只读；整理随时可被抢占且可安全续做；读侧零阻塞零额外推理；记忆是人可读可改的 Markdown；降级就说降级，不伪装正常。</p></div>
+    <div class="card"><h3>于是它像睡觉，不像缓存</h3><p>白天只是发生，夜里才成形。缓存求的是命中率，睡眠求的是第二天醒来时，判断已经变了。</p></div>
   </div>
   <div class="flow">
-    <span>会话：<b>只读</b></span><span>→</span>
-    <span>idle：<b>sleep.run</b></span><span>→</span>
-    <span>蒸馏 / 裁决 / 淘汰</span><span>→</span>
-    <span>下一次：<b>递一条提示</b></span>
+    <span>写：<b>离线 · 敢贵</b></span><span>→</span>
+    <span>读：<b>在线 · 敢少</b></span><span>→</span>
+    <span>边界：<b>sidecar</b></span><span>→</span>
+    <span>结果：<b>醒来时判断已变</b></span>
   </div>
 </section>
 
