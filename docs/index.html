@@ -110,21 +110,21 @@ footer a{color:var(--dim)}
 
 <section id="how" class="reveal">
   <div class="tag">Design</div>
-  <h2>它只负责记，不负责想</h2>
-  <p class="lead">想，是 transformer 的事；记，才是这一层的事。所以这里没有一句提示词教模型怎么推理，只有一套让「发生过的事」留下来的机制：<b>会话期间记忆只读</b>，TS 侧只挂两个 hook 各递一条提示，Python sidecar 在会话里一个字都不写；等 agent 全闲下来才 <code>sleep.run</code>——逐条读当天日志，蒸馏成 knowledge / skill / episode，处理一条就 <code>mark_log_processed</code>。代价落在夜里，不在你的轮次里。</p>
+  <h2>它敢慢，因为它不在你的链路上</h2>
+  <p class="lead">多数记忆方案挤在推理链上：每轮都塞检索、塞摘要、塞自我反思——便宜、即时，但只能做一次性的近似。Somni 把它整个摘出去，放进另一个进程（Python sidecar），由一个睡眠循环专职处理。<b>不在链路上，才敢读一整天的日志、反复改写、当众否决自己</b>；而你在会话里看到的，只是一条想得起来就递上来的提示。</p>
   <div class="grid g2" style="margin-top:26px">
-    <div class="card"><h3>记什么，分成五层</h3><p>情景（发生了什么）、语义（事实与概念）、前瞻（还没做的事）、程序（怎么做成的技能）、身份（我是谁）。都落成带 front-matter 的 Markdown，能读能改能 grep。</p></div>
-    <div class="card"><h3>什么时候记</h3><p>每 30 秒检查一次：无梦在跑、sidecar 活着、所有 agent 都 idle，且安静够久或距上次梦够远，才开始。写的时候用 <code>mark_log_processed</code> 逐条挪进 archived/，断在半路也能安全续上。</p></div>
-    <div class="card"><h3>怎么记起来</h3><p>System-1 联想挂在 <code>agent/pre-step</code> 与 <code>tools/post-execute</code>：想到就追加一条提示，想不到就闭嘴。注入的消息 id 记下来，不回灌日志——否則会被再梦一遍。</p></div>
-    <div class="card"><h3>记不住了怎么办</h3><p>每次做梦跑 <code>decay_all_knowledge</code>，分低于 0.2 直接归档；被召回、被复认的 stability 抬升、曲线压平。常用的留住，久无人问的自然退场。</p></div>
-    <div class="card"><h3>你一来就让路</h3><p>任一 agent 转 running，立刻 <code>sleep.cancel</code>；做梦循环在工具调用间检查标记，返回 <code>interrupted</code>。已处理的保住，未处理的等下次。</p></div>
-    <div class="card"><h3>记性断了也不装</h3><p>sidecar 崩了，在途请求当场报错，2s×n 退避重启最多三次；期间提示段沿用旧文本、工具返回错误串。降级就说降级，不装作正常。</p></div>
+    <div class="card"><h3>摘下来，才付得起成本</h3><p>昂贵的整理不发生在你的轮次：所有 agent idle 且安静够久，才 <code>sleep.run</code>。省下的不是 token，是「这一步必须做完」的时间压力。</p></div>
+    <div class="card"><h3>敢否决自己</h3><p>做梦时是 ReAct：读日志、写结论、必要时改旧结论。冲突以新证据覆盖旧的，分低于 0.2 的条目直接归档——遗忘是设计，不是漏。</p></div>
+    <div class="card"><h3>断在半路也不怕</h3><p>处理完一条就 <code>mark_log_processed</code> 挪进 archived/。任一 agent 转 running，立刻 <code>sleep.cancel</code>，已处理的保住，其余留到下次。</p></div>
+    <div class="card"><h3>不是黑箱</h3><p>记下来的是带 front-matter 的 Markdown，分五层（情景/语义/前瞻/程序/身份）。能读、能改、能 diff、能进版本库——出了错你可以直接动手修。</p></div>
+    <div class="card"><h3>核心不搬家</h3><p>衰减曲线、混合打分、做梦循环原样留在 Python 里跑，harness 侧只做接线与调度。一条双向 ndjson JSON-RPC，省掉一次伤筋动骨的移植。</p></div>
+    <div class="card"><h3>坏了就说坏了</h3><p>sidecar 崩溃，在途请求当场报错，2s×n 退避重启最多三次；期间提示段沿用旧文本、工具返回错误串。降级而不假装正常。</p></div>
   </div>
   <div class="flow">
-    <span>发生 → <b>session-log</b></span><span>→</span>
-    <span>全 idle → <b>sleep.run</b></span><span>→</span>
-    <span>蒸馏 → <b>knowledge/skill</b></span><span>→</span>
-    <span>召回 → <b>stability ↑</b></span>
+    <span>会话：<b>只读</b></span><span>→</span>
+    <span>idle：<b>sleep.run</b></span><span>→</span>
+    <span>蒸馏 / 裁决 / 淘汰</span><span>→</span>
+    <span>下一次：<b>递一条提示</b></span>
   </div>
 </section>
 
