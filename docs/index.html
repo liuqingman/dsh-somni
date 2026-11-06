@@ -110,21 +110,21 @@ footer a{color:var(--dim)}
 
 <section id="how" class="reveal">
   <div class="tag">Design</div>
-  <h2>它从不在你说话的时候整理记忆</h2>
-  <p class="lead">这是这个插件最反直觉的一处设计：<b>会话期间记忆是只读的</b>。TS 那半边只挂两个 hook，各递一条提示；Python 那半边（sidecar，ndjson over stdio）在会话里一个字都不写。等 agent 全闲下来，才 <code>sleep.run</code> —— 逐条读当天的日志，蒸馏成 knowledge / skill / episode，处理完一条就 <code>mark_log_processed</code>。所以整理从不占你的轮次，也不怕被打断。</p>
+  <h2>它只负责记，不负责想</h2>
+  <p class="lead">想，是 transformer 的事；记，才是这一层的事。所以这里没有一句提示词教模型怎么推理，只有一套让「发生过的事」留下来的机制：<b>会话期间记忆只读</b>，TS 侧只挂两个 hook 各递一条提示，Python sidecar 在会话里一个字都不写；等 agent 全闲下来才 <code>sleep.run</code>——逐条读当天日志，蒸馏成 knowledge / skill / episode，处理一条就 <code>mark_log_processed</code>。代价落在夜里，不在你的轮次里。</p>
   <div class="grid g2" style="margin-top:26px">
-    <div class="card"><h3>两个进程，一套记性</h3><p>记忆核心（衰减、Markdown/YAML、混合打分、ReAct 做梦）原样留在 Python 里，harness 侧只做接线。中间一条双向 JSON-RPC 线，不做移植、不丢等价性。</p></div>
-    <div class="card"><h3>醒时只递一条提示</h3><p>System-1 联想挂在 <code>agent/pre-step</code> 和 <code>tools/post-execute</code>：想出东西就追加一条 user 消息，想不出就闭嘴。注入的消息 id 会被记下，不回灌日志，不会被再梦一遍。</p></div>
-    <div class="card"><h3>三段常驻，空则不加</h3><p>身份、待办、纪律三段注入系统提示，按需刷新、共用同一个 in-flight 请求。新装的实例这三段都是空的，于是它一个字也不往 prompt 里塞。</p></div>
-    <div class="card"><h3>一开工就让路</h3><p>任一 agent 转为 running，立刻 <code>sleep.cancel</code>；做梦循环在工具调用之间检查标记，返回 <code>interrupted</code>。已处理的日志保留，剩下的等下一次。</p></div>
-    <div class="card"><h3>常用的变稳，久问的淡出</h3><p>每次做梦跑一遍 <code>decay_all_knowledge</code>，分低到 0.2 就直接归档；被取用、被复认的条目 stability 抬升，曲线压平——间隔重复那套直觉，写进打分里。</p></div>
-    <div class="card"><h3>崩了也不会失忆</h3><p>sidecar 崩溃时所有在途请求立刻报错，2s × n 退避重启，最多三次。期间提示段沿用上次文本、工具返回错误串——降级，但不假装正常。</p></div>
+    <div class="card"><h3>记什么，分成五层</h3><p>情景（发生了什么）、语义（事实与概念）、前瞻（还没做的事）、程序（怎么做成的技能）、身份（我是谁）。都落成带 front-matter 的 Markdown，能读能改能 grep。</p></div>
+    <div class="card"><h3>什么时候记</h3><p>每 30 秒检查一次：无梦在跑、sidecar 活着、所有 agent 都 idle，且安静够久或距上次梦够远，才开始。写的时候用 <code>mark_log_processed</code> 逐条挪进 archived/，断在半路也能安全续上。</p></div>
+    <div class="card"><h3>怎么记起来</h3><p>System-1 联想挂在 <code>agent/pre-step</code> 与 <code>tools/post-execute</code>：想到就追加一条提示，想不到就闭嘴。注入的消息 id 记下来，不回灌日志——否則会被再梦一遍。</p></div>
+    <div class="card"><h3>记不住了怎么办</h3><p>每次做梦跑 <code>decay_all_knowledge</code>，分低于 0.2 直接归档；被召回、被复认的 stability 抬升、曲线压平。常用的留住，久无人问的自然退场。</p></div>
+    <div class="card"><h3>你一来就让路</h3><p>任一 agent 转 running，立刻 <code>sleep.cancel</code>；做梦循环在工具调用间检查标记，返回 <code>interrupted</code>。已处理的保住，未处理的等下次。</p></div>
+    <div class="card"><h3>记性断了也不装</h3><p>sidecar 崩了，在途请求当场报错，2s×n 退避重启最多三次；期间提示段沿用旧文本、工具返回错误串。降级就说降级，不装作正常。</p></div>
   </div>
   <div class="flow">
-    <span>会话里 → <b>只读</b></span><span>→</span>
+    <span>发生 → <b>session-log</b></span><span>→</span>
     <span>全 idle → <b>sleep.run</b></span><span>→</span>
-    <span>逐条 → <b>mark_log_processed</b></span><span>→</span>
-    <span>被召回 → <b>stability ↑</b></span>
+    <span>蒸馏 → <b>knowledge/skill</b></span><span>→</span>
+    <span>召回 → <b>stability ↑</b></span>
   </div>
 </section>
 
