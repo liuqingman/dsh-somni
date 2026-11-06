@@ -83,7 +83,7 @@ footer a{color:var(--dim)}
 <nav><div class="in">
   <span class="logo"><svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><defs><mask id="mc"><circle cx="30.1" cy="32.3" r="20.16" fill="#fff"/><circle cx="37" cy="25.7" r="18.95" fill="#000"/></mask></defs><circle cx="30.1" cy="32.3" r="20.16" fill="url(#mg)" mask="url(#mc)"/><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c6d0ff"/><stop offset="1" stop-color="#7485ff"/></linearGradient><path d="M48.3 11.48 L49.64 16.86 L55.02 18.2 L49.64 19.54 L48.3 24.92 L46.96 19.54 L41.58 18.2 L46.96 16.86 Z" fill="#39e1c4"/></svg>SOMNI<i>.</i></span>
   <span class="sp"></span>
-  <a href="#how">机制</a><a href="#mem">记忆</a><a href="#start">上手</a>
+  <a href="#how">设计</a><a href="#mem">记忆</a><a href="#start">上手</a>
   <a class="btn" id="ghlink" href="https://github.com/liuqingman/dsh-somni" target="_blank" rel="noopener">GitHub ↗</a>
 </div></nav>
 
@@ -109,16 +109,20 @@ footer a{color:var(--dim)}
 </header>
 
 <section id="how" class="reveal">
-  <div class="tag">How it works</div>
+  <div class="tag">Design</div>
   <h2>两个半身：醒的一半，睡的一半</h2>
-  <p class="lead"><b>醒着的那半</b>是跑在宿主里的 TypeScript 插件：把会话事件记下来、行动前把相关记忆注入提示、按线索做关联。<br>
-  <b>睡着的那半</b>是一个独立的 Python 进程（术语叫 sidecar「边车」——由插件拉起、跑在同一台机器上、不对外开端口，像挂在主机旁边的挎斗），负责记忆条目的打分与衰减，以及空闲时「做梦」整理当天的日志。</p>
-  <p class="lead">两边只靠一条 stdio JSON-RPC 管道通信，做梦时反向借宿主的模型，所以不用额外 API Key。</p>
+  <p class="lead">人类的大脑不会在开会时重构记忆，也不会在睡觉时保持在线。Somni 按同样的分工来设计：<b>在线时薄，离线时厚</b>——醒着只做最省的事，把整合留到没有延迟压力的时刻。</p>
+  <div class="grid g2" style="margin-top:26px">
+    <div class="card"><h3>醒时：上下文是最稀缺的资源</h3><p>不把记忆全塞进提示，只在「可能要用」的那一刻才让相关条目浮现；身份与未竟之事例外，它们常驻，因为每次行动都要用。</p></div>
+    <div class="card"><h3>睡时：整理比记录更重要</h3><p>把一天的流水账蒸馏成分层结论，同时做两件在线做不到的事——用新证据覆盖旧结论，以及让长期用不到的东西自然淡出。</p></div>
+    <div class="card"><h3>判断标准：会不会被用到</h3><p>记忆不是对过去的留档，是对未来的投资。所以条目按「用过的次数」增值，按「久未被用」衰减，而不是按时间堆积。</p></div>
+    <div class="card"><h3>不打扰、不外求</h3><p>整合不占用在线响应时间；复用宿主已有的模型，不引入额外账号——它该是 agent 自带的能力，不是又一个要配的外部服务。</p></div>
+  </div>
   <div class="flow">
-    <span>会话事件 → <b>采集</b></span><span>→</span>
-    <span>空闲 → <b>做梦整合</b></span><span>→</span>
-    <span>线索 → <b>关联召回</b></span><span>→</span>
-    <span>行动前 <b>注入提示</b></span>
+    <span>发生 → <b>记录</b></span><span>→</span>
+    <span>空闲 → <b>蒸馏</b></span><span>→</span>
+    <span>新任务 → <b>浮现</b></span><span>→</span>
+    <span>被用到 → <b>更强</b></span>
   </div>
 </section>
 
