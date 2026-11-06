@@ -110,19 +110,21 @@ footer a{color:var(--dim)}
 
 <section id="how" class="reveal">
   <div class="tag">Design</div>
-  <h2>它不替你想，它让你不必重新想</h2>
-  <p class="lead">记忆系统不产出工作成果，它干的是更划算的一件事：<b>让想明白过的东西留得住</b>。会话进行中，它把沉淀好的判断递到手上——不插话、不额外推理、不改写记忆；等你离开，它才回头把这一天的痕迹嚼透，提炼、纠错、淘汰、串联。于是同一个坑不必踩第二次，同一条路不必重新摸索。</p>
+  <h2>它从不在你说话的时候整理记忆</h2>
+  <p class="lead">这是这个插件最反直觉的一处设计：<b>会话期间记忆是只读的</b>。TS 那半边只挂两个 hook，各递一条提示；Python 那半边（sidecar，ndjson over stdio）在会话里一个字都不写。等 agent 全闲下来，才 <code>sleep.run</code> —— 逐条读当天的日志，蒸馏成 knowledge / skill / episode，处理完一条就 <code>mark_log_processed</code>。所以整理从不占你的轮次，也不怕被打断。</p>
   <div class="grid g2" style="margin-top:26px">
-    <div class="card"><h3>醒时 · 只取用，不动笔</h3><p>记忆此刻是只读的：要回忆伸手就拿，拿到的是上次的结论而非当时的原话——省下的正是重新推导的那段路。</p></div>
-    <div class="card"><h3>睡时 · 一遍嚼透</h3><p>先收口所有会话，再从今天的第一条读到最后一条：蒸馏成结论、拆出可复用的技能、补上漏记的、最后把原料封存。</p></div>
-    <div class="card"><h3>醒来 · 见结论，不见流水账</h3><p>同一件事第二次出现，浮现的是上一次的判断；被反复取用的越站越稳，久无人问的悄悄淡出——留下的都是真用得上的。</p></div>
-    <div class="card"><h3>一叫就停</h3><p>你一有活它立刻让路：整理做到一半也会自行中止，剩下的留到下次。等待这件事，永远不落在你身上。</p></div>
+    <div class="card"><h3>两个进程，一套记性</h3><p>记忆核心（衰减、Markdown/YAML、混合打分、ReAct 做梦）原样留在 Python 里，harness 侧只做接线。中间一条双向 JSON-RPC 线，不做移植、不丢等价性。</p></div>
+    <div class="card"><h3>醒时只递一条提示</h3><p>System-1 联想挂在 <code>agent/pre-step</code> 和 <code>tools/post-execute</code>：想出东西就追加一条 user 消息，想不出就闭嘴。注入的消息 id 会被记下，不回灌日志，不会被再梦一遍。</p></div>
+    <div class="card"><h3>三段常驻，空则不加</h3><p>身份、待办、纪律三段注入系统提示，按需刷新、共用同一个 in-flight 请求。新装的实例这三段都是空的，于是它一个字也不往 prompt 里塞。</p></div>
+    <div class="card"><h3>一开工就让路</h3><p>任一 agent 转为 running，立刻 <code>sleep.cancel</code>；做梦循环在工具调用之间检查标记，返回 <code>interrupted</code>。已处理的日志保留，剩下的等下一次。</p></div>
+    <div class="card"><h3>常用的变稳，久问的淡出</h3><p>每次做梦跑一遍 <code>decay_all_knowledge</code>，分低到 0.2 就直接归档；被取用、被复认的条目 stability 抬升，曲线压平——间隔重复那套直觉，写进打分里。</p></div>
+    <div class="card"><h3>崩了也不会失忆</h3><p>sidecar 崩溃时所有在途请求立刻报错，2s × n 退避重启，最多三次。期间提示段沿用上次文本、工具返回错误串——降级，但不假装正常。</p></div>
   </div>
   <div class="flow">
-    <span>发生 → <b>记录</b></span><span>→</span>
-    <span>空闲 → <b>蒸馏</b></span><span>→</span>
-    <span>新任务 → <b>浮现</b></span><span>→</span>
-    <span>被用到 → <b>更强</b></span>
+    <span>会话里 → <b>只读</b></span><span>→</span>
+    <span>全 idle → <b>sleep.run</b></span><span>→</span>
+    <span>逐条 → <b>mark_log_processed</b></span><span>→</span>
+    <span>被召回 → <b>stability ↑</b></span>
   </div>
 </section>
 
