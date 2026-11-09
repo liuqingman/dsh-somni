@@ -160,6 +160,7 @@ ls ~/.somni/memory   <span class="c"># knowledge/ skill/ episode/ ...</span></pr
   <div class="wrap">
     <div>Somni · dsh-somni — sleep-consolidated memory for DSH agents</div>
     <div style="margin-top:8px"><a href="https://github.com/liuqingman/dsh-somni">GitHub</a> · MIT · liuqingman.top</div>
+    <div style="margin-top:10px;font-size:12px;opacity:.75">本站访问 <b id="pv-count" style="font-variant-numeric:tabular-nums;letter-spacing:.5px">—</b> 次</div>
   </div>
 </footer>
 
@@ -220,6 +221,28 @@ ls ~/.somni/memory   <span class="c"># knowledge/ skill/ episode/ ...</span></pr
 (function(){
   const io=new IntersectionObserver(es=>es.forEach(e=>e.isIntersecting&&e.target.classList.add('in')),{threshold:.12});
   document.querySelectorAll('.reveal').forEach(e=>io.observe(e));
+})();
+</script>
+<script>
+// 本站访问计数（PV）：落在 aml 服务端 /site，同站无关，跨域 CORS 已开
+(function(){
+  var el=document.getElementById('pv-count');
+  if(!el) return;
+  try{
+    fetch('https://aml.liuqingman.top/site',{mode:'cors',cache:'no-store'})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(d){
+        if(d&&typeof d.site_visits==='number'){el.textContent=d.site_visits.toLocaleString();}
+        else{el.textContent='—';}
+      })
+      .catch(function(){
+        // 计数端点不可达时退化为只读，避免页面拦错
+        fetch('https://aml.liuqingman.top/site?peek=1',{mode:'cors',cache:'no-store'})
+          .then(function(r){return r.json()})
+          .then(function(d){if(d&&d.site_visits!=null)el.textContent=d.site_visits.toLocaleString();})
+          .catch(function(){el.textContent='—';});
+      });
+  }catch(e){el.textContent='—';}
 })();
 </script>
 </body>
