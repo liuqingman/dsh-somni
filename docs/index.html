@@ -122,22 +122,23 @@ footer a{color:var(--dim)}
 </header>
 
 <section id="how" class="reveal">
-  <div class="tag">Design</div>
-  <h2>要跨会话的记忆，不要更长的上下文</h2>
-  <p class="lead">上下文会满、会过期，还每轮都收费；记忆该是跨天沉淀下来的判断。三条约束：<b>不占推理、不拖会话、不许腐烂</b>。</p>
+  <div class="tag">Brain-inspired design</div>
+  <h2>照着大脑造记忆，不是把上下文拉长</h2>
+  <p class="lead">上下文会满、会过期，还每轮都收费——它根本不是记忆，只是一块草稿纸。真正缺的不是「给模型更多字」，而是一套<b>会自己整理、自己遗忘、自己想起</b>的记忆。这事大脑已经解决了，所以我们直接抄它的机制。</p>
   <div class="grid g2" style="margin-top:26px">
-    <div class="card"><h3>不占推理</h3><p>会话里记忆只读：想得起来递一句，想不起来就闭嘴。</p></div>
-    <div class="card"><h3>不拖会话</h3><p>整理搬进独立进程，全员 idle 才做，一有活立刻让路。</p></div>
-    <div class="card"><h3>不许腐烂</h3><p>冲突以新证据覆盖，分低到 0.2 归档，常用的越站越稳。</p></div>
-    <div class="card"><h3>不藏起来</h3><p>记忆是带 front-matter 的 Markdown，能读能改能进版本库。</p></div>
+    <div class="card"><h3>双系统：直觉先到，推理后到</h3><p>会话里记忆只读。最新的用户消息一进来，联想打分先跑一遍（System-1，阈值 0.52），够格就主动递一句，不够格就闭嘴——<b>推理不被记忆占预算</b>。同一条记忆一次会话只提示一次，像习惯化。</p></div>
+    <div class="card"><h3>睡眠巩固：白天记流水，夜里长记性</h3><p>整理搬进独立进程。全员 idle 才起 <code>sleep.run</code>，跑 ReAct 把当天日志蒸馏成知识、裁决冲突、淘汰噪声；任何 agent 复活立刻让路——<b>人从不等待做梦</b>。</p></div>
+    <div class="card"><h3>突触衰减：不被想起就淡去</h3><p>每条记忆带 <code>score</code> 与 <code>stability</code>，每次做梦复利衰减，被召回就加固——这就是间隔重复。跌到 <code>0.2</code> 移入归档，<b>不删，但不再干扰判断</b>。</p></div>
+    <div class="card"><h3>联想扩散：想起一个，带出一串</h3><p>召回不只靠字面匹配：关键词 + 向量余弦（bge-small）+ 沿 <code>related:</code> 链路一跳扩散（衰减 0.6）。<b>像人一样顺着关联想起来</b>，而不是精确查表。</p></div>
   </div>
   <div class="flow">
-    <span>会话中：<b>只读</b></span><span>→</span>
-    <span>全 idle：<b>sleep.run</b></span><span>→</span>
+    <span>白天：<b>直觉递一句</b></span><span>→</span>
+    <span>全 idle：<b>睡眠巩固</b></span><span>→</span>
     <span>蒸馏 · 裁决 · 淘汰</span><span>→</span>
-    <span>下次：<b>一句话</b></span>
+    <span>醒来：<b>只剩判断</b></span>
   </div>
-</section>
+  <p class="lead" style="margin-top:22px;font-size:13.5px">仿生不等于黑箱：全部记忆落盘成带 front-matter 的 Markdown，能读、能改、能 grep、能进版本库。</p>
+  </section>
 
 <section id="forget" class="reveal">
   <div class="tag">Forgetting</div>
